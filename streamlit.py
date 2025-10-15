@@ -5,7 +5,6 @@ from PIL import Image
 import io
 from datetime import datetime
 
-# إعداد الصفحة
 st.set_page_config(
     page_title="Text to Image Generator",
     page_icon="🎨",
@@ -15,7 +14,6 @@ st.set_page_config(
 st.title('🎨 Text to Image Generator')
 st.write('Transform your text into amazing images using AI!')
 
-# الشرح في الشريط الجانبي
 with st.sidebar:
     st.header("ℹ️ Instructions")
     st.write("""
@@ -35,11 +33,9 @@ with st.sidebar:
         ]
     )
 
-# قسم إدخال الـ API Token
 st.sidebar.markdown("---")
 st.sidebar.header("🔑 API Configuration")
 
-# الخيار: إما استخدام secrets أو إدخال يدوي
 api_source = st.sidebar.radio(
     "API Token Source",
     ["Use Streamlit Secrets", "Enter Manually"]
@@ -61,7 +57,6 @@ if api_source == "Use Streamlit Secrets":
 else:
     api_token = st.sidebar.text_input("Enter HuggingFace Token", type="password")
 
-# الإدخال الرئيسي
 prompt = st.text_area(
     '**Describe your image:**',
     'a cute cat playing with a red ball in the garden, cartoon style',
@@ -69,13 +64,11 @@ prompt = st.text_area(
     placeholder="Be creative! Describe the image you want to generate..."
 )
 
-# أزرار التحكم
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     generate_btn = st.button('🚀 Generate Image', type='primary', use_container_width=True)
 
 if generate_btn:
-    # التحقق من المدخلات
     if not prompt.strip():
         st.warning('⚠️ Please enter a prompt description')
         st.stop()
@@ -84,13 +77,11 @@ if generate_btn:
         st.error("🔐 Please configure your HuggingFace API Token in the sidebar")
         st.stop()
     
-    # عرض مؤشر التقدم
     with st.spinner('🎨 Creating your masterpiece... This may take 20-30 seconds for the first time.'):
         try:
             API_URL = f"https://api-inference.huggingface.co/models/{model_option}"
             headers = {'Authorization': f"Bearer {api_token}"}
             
-            # شريط تقدم محسن
             progress_bar = st.progress(0)
             status_text = st.empty()
             
@@ -98,18 +89,14 @@ if generate_btn:
                 progress_bar.progress(i + 1)
                 status_text.text(f"Generating... {i+1}%")
             
-            # طلب API
             response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
             
-            # معالجة الاستجابة
             if response.status_code == 200:
                 image = Image.open(io.BytesIO(response.content))
                 
-                # عرض الصورة
                 st.subheader("🎉 Your Generated Image")
                 st.image(image, caption=f"**{prompt}**", use_column_width=True)
                 
-                # زر تحميل الصورة
                 img_bytes = io.BytesIO()
                 image.save(img_bytes, format='PNG')
                 
@@ -144,7 +131,6 @@ if generate_btn:
     status_text.empty()
     progress_bar.empty()
 
-# نصائح للمستخدم
 with st.expander("💡 Tips for better results"):
     st.write("""
     - **Be specific**: "a red car" vs "a shiny red sports car on a mountain road at sunset"
@@ -156,7 +142,6 @@ with st.expander("💡 Tips for better results"):
         - "an astronaut riding a horse on mars, photorealistic"
     """)
 
-# تذييل الصفحة
 st.markdown("---")
 st.markdown(
     """
@@ -166,3 +151,4 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
