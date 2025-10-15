@@ -1,108 +1,168 @@
-# from dotenv import load_dotenv, find_dotenv
-# import requests
-# import os
-# import io 
-# from PIL import Image 
-# from datetime import datetime
-# import streamlit as st
-
-# load_dotenv(find_dotenv())
-# HUGGINGFACEHUB_API_TOKEN = os.getenv('HUGGINGFACEHUB_API_TOKEN')
-# def text2image(prompt: str) -> str:
-#     API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
-    
-#     headers = {'Authorization': f"Bearer {HUGGINGFACEHUB_API_TOKEN}"}
-#     payload = {
-#         "inputs": prompt,
-#     }
-    
-#     try:
-#         response = requests.post(API_URL, headers=headers, json=payload)
-#         response.raise_for_status()
-        
-#         image_bytes = response.content
-#         image = Image.open(io.BytesIO(image_bytes))
-
-#         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-#         filename = f"{timestamp}.jpg"
-#         image.save(filename)
-        
-#         return filename
-#     except Exception as e:
-#         st.error(f"Error generating image: {e}")
-#         return None
-
-# def main():
-#     st.set_page_config(
-#         page_title="Text2Image Generator",
-#         page_icon="🎨",
-#         layout="centered"
-#     )
-    
-#     st.title('Text-to-Image Generator')
-#     st.write("Enter a prompt below to generate an image using AI")
-
-#     with st.form(key='my_form'):
-#         query = st.text_area(
-#             label='Image Prompt:',
-#             help="Enter a descriptive prompt for the image you want to generate",
-#             key='query',
-#             max_chars=100,
-#             height=100
-#         )
-
-#         submit_button = st.form_submit_button(label='Generate Image')
-        
-#         if submit_button:
-#             if not query.strip():
-#                 st.warning("Please enter a prompt")
-#             else:
-#                 with st.spinner('Generating image... This may take a few seconds'):
-#                     filename = text2image(query)
-#                     if filename:
-#                         st.success('Image generated successfully!')
-#                         st.image(filename, caption=query, use_column_width=True)
-                        
-#                         with open(filename, "rb") as file:
-#                             st.download_button(
-#                                 label="Download Image",
-#                                 data=file,
-#                                 file_name=filename,
-#                                 mime="image/jpeg"
-#                             )
-
-# if __name__ == "__main__":
-#     main()
-
 import streamlit as st
 import requests
 import os
 from PIL import Image
 import io
 from datetime import datetime
-from dotenv import load_dotenv
 
-load_dotenv()
+# إعداد الصفحة
+st.set_page_config(
+    page_title="Text to Image Generator",
+    page_icon="🎨",
+    layout="centered"
+)
 
-st.title('Text to Image Generator')
-st.write('Simple text to image conversion')
+st.title('🎨 Text to Image Generator')
+st.write('Transform your text into amazing images using AI!')
 
-prompt = st.text_input('Enter your prompt:', 'a cat playing with ball')
+# الشرح في الشريط الجانبي
+with st.sidebar:
+    st.header("ℹ️ Instructions")
+    st.write("""
+    1. Enter your image description
+    2. Click Generate Image
+    3. Wait for the magic! ✨
+    
+    **Note:** First generation may take 20-30 seconds as the model loads.
+    """)
+    
+    st.header("⚙️ Settings")
+    model_option = st.selectbox(
+        "Choose Model",
+        [
+            "stabilityai/stable-diffusion-xl-base-1.0",
+            "runwayml/stable-diffusion-v1-5"
+        ]
+    )
 
-if st.button('Generate Image'):
-    if prompt:
-        st.write('Generating image...')
-        
-        API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
-        headers = {'Authorization': f"Bearer {os.getenv('HUGGINGFACEHUB_API_TOKEN')}"}
-        
-        response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-        
-        if response.status_code == 200:
-            image = Image.open(io.BytesIO(response.content))
-            st.image(image, caption=prompt)
-            st.success('Done!')
-        else:
-            st.error(f'Error: {response.status_code}')
+# قسم إدخال الـ API Token
+st.sidebar.markdown("---")
+st.sidebar.header("🔑 API Configuration")
+
+# الخيار: إما استخدام secrets أو إدخال يدوي
+api_source = st.sidebar.radio(
+    "API Token Source",
+    ["Use Streamlit Secrets", "Enter Manually"]
+)
+
+if api_source == "Use Streamlit Secrets":
+    if 'HUGGINGFACEHUB_API_TOKEN' in st.secrets:
+        api_token = st.secrets['HUGGINGFACEHUB_API_TOKEN']
+        st.sidebar.success("✅ API Token loaded from secrets")
     else:
-        st.warning('Please enter a prompt')
+        st.sidebar.error("❌ No API token found in secrets")
+        st.sidebar.info("""
+        Add to your Streamlit Cloud secrets:
+        ```
+        HUGGINGFACEHUB_API_TOKEN=your_token_here
+        ```
+        """)
+        api_token = None
+else:
+    api_token = st.sidebar.text_input("Enter HuggingFace Token", type="password")
+
+# الإدخال الرئيسي
+prompt = st.text_area(
+    '**Describe your image:**',
+    'a cute cat playing with a red ball in the garden, cartoon style',
+    height=120,
+    placeholder="Be creative! Describe the image you want to generate..."
+)
+
+# أزرار التحكم
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    generate_btn = st.button('🚀 Generate Image', type='primary', use_container_width=True)
+
+if generate_btn:
+    # التحقق من المدخلات
+    if not prompt.strip():
+        st.warning('⚠️ Please enter a prompt description')
+        st.stop()
+    
+    if not api_token:
+        st.error("🔐 Please configure your HuggingFace API Token in the sidebar")
+        st.stop()
+    
+    # عرض مؤشر التقدم
+    with st.spinner('🎨 Creating your masterpiece... This may take 20-30 seconds for the first time.'):
+        try:
+            API_URL = f"https://api-inference.huggingface.co/models/{model_option}"
+            headers = {'Authorization': f"Bearer {api_token}"}
+            
+            # شريط تقدم محسن
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            for i in range(100):
+                progress_bar.progress(i + 1)
+                status_text.text(f"Generating... {i+1}%")
+            
+            # طلب API
+            response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+            
+            # معالجة الاستجابة
+            if response.status_code == 200:
+                image = Image.open(io.BytesIO(response.content))
+                
+                # عرض الصورة
+                st.subheader("🎉 Your Generated Image")
+                st.image(image, caption=f"**{prompt}**", use_column_width=True)
+                
+                # زر تحميل الصورة
+                img_bytes = io.BytesIO()
+                image.save(img_bytes, format='PNG')
+                
+                download_col1, download_col2, download_col3 = st.columns([1, 2, 1])
+                with download_col2:
+                    st.download_button(
+                        label="📥 Download PNG Image",
+                        data=img_bytes.getvalue(),
+                        file_name=f"ai_image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                        mime="image/png",
+                        use_container_width=True
+                    )
+                
+                st.success('✅ Image generated successfully!')
+                
+            elif response.status_code == 503:
+                st.warning("⏳ Model is loading, please try again in 30 seconds...")
+                st.info("This usually happens when the model hasn't been used recently.")
+            elif response.status_code == 401:
+                st.error("🔐 Invalid API Token. Please check your HuggingFace token.")
+            else:
+                st.error(f'❌ API Error {response.status_code}')
+                st.code(response.text[:200] + "..." if len(response.text) > 200 else response.text)
+                
+        except requests.exceptions.RequestException as e:
+            st.error(f'🌐 Network error: Please check your internet connection')
+            st.debug(f"Error details: {str(e)}")
+        except Exception as e:
+            st.error(f'❌ Unexpected error occurred')
+            st.debug(f"Error details: {str(e)}")
+    
+    status_text.empty()
+    progress_bar.empty()
+
+# نصائح للمستخدم
+with st.expander("💡 Tips for better results"):
+    st.write("""
+    - **Be specific**: "a red car" vs "a shiny red sports car on a mountain road at sunset"
+    - **Include style**: "watercolor painting", "digital art", "photorealistic"
+    - **Add details**: lighting, colors, background, emotions
+    - **Example prompts**:
+        - "a majestic dragon flying over a medieval castle, fantasy art"
+        - "a cozy coffee shop in paris, watercolor style"
+        - "an astronaut riding a horse on mars, photorealistic"
+    """)
+
+# تذييل الصفحة
+st.markdown("---")
+st.markdown(
+    """
+    <div style='text-align: center'>
+        <p>Powered by 🤗 Hugging Face | Built with 🎈 Streamlit</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
